@@ -1,73 +1,49 @@
-# betturl
+# coupler
 
-Better URL handling
+Acceptor-Connector Multi-Transport Services
 
 ## Installation
 ```
-npm install betturl
+npm install coupler
 ```
 
 ## Usage
-```javascript
-var betturl = require('betturl');
-var parsed = betturl.parse('http://someurl.com');
 
-// do something with parsed
+##### Server
+```javascript
+var coupler = require('coupler');
+
+var echo_protocol = {
+  echo: function(message, callback) {
+    callback(null, 'PING! ' + message);
+  }
+};
+
+coupler.accept(tcp: 7070).provide(echo: echo_protocol);
+```
+
+##### Client
+```javascript
+var coupler = require('coupler')
+  , echo_service = coupler.connect(tcp: 7070).consume('echo');
+
+echo_service.on('connected', function() {
+  echo_service.echo('Hello World!', function(err, message) {
+    if (err) { return console.log(err.stack); }
+    console.log(message);
+  });
+});
 ```
 
 ## Methods
 
-### betturl.parse(url, options = {})
+### coupler.accept(protocol_config)
 
-Parse a URL.
+### coupler.connect(protocol_config)
 
-The simplest form of this works very similar to the [URL module](http://nodejs.org/api/url.html) from the node.js core.
+### coupler.provide(service_config)
 
-```javascript
-> betturl.parse('http://www.google.com');
-{
-  url: 'http://www.google.com',   // the original url parsed
-  protocol: 'http',
-  host: 'www.google.com',
-  port: 80,
-  path: '/',
-  query: '',
-  hash: ''
-}
-```
-
-betturl will also parse more complex URLs, like connection URLs, and infer the types of variables in the querystring.
-
-```javascript
-> betturl.parse('mongodb://matt.insler%40gmail.com:foobar@1.2.3.4:6000,4.3.2.1:8000/database-123?auto_reconnect=true&namespace=foo&timeout=3000');
-{
-  url: 'mongodb://matt.insler%40gmail.com:foobar@1.2.3.4:6000,4.3.2.1:8000/database-123?auto_reconnect=true&namespace=foo&timeout=3000',
-  protocol: 'mongodb',
-  hosts: [
-    { host: '1.2.3.4', port: 6000 },
-    { host: '4.3.2.1', port: 8000 }
-  ],
-  path: '/database-123',
-  query: {
-    auto_reconnect: true,
-    namespace: 'foo',
-    timeout: 3000
-  },
-  hash: '',
-  auth: {
-    user: 'matt.insler@gmail.com',
-    password: 'foobar'
-  }
-}
-```
-
-##### Options
-
-- **_parse_query_**
-  Should the querystring be parsed into typed fields.
-  By setting this to false, the query property will be a string.
-  _Accepted values_: **true**, **false**
-  _Default_: **true**
+### coupler.consume(service_name)
 
 ## License
 Copyright (c) 2012 Matt Insler  
