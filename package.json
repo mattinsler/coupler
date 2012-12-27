@@ -1,0 +1,41 @@
+{
+  "name": "coupler",
+  "description": "Acceptor-Connector Multi-Transport Services",
+  "version": "0.1.0",
+  "homepage": "https://github.com/mattinsler/coupler",
+  "author": {
+    "name": "Matt Insler",
+    "email": "matt.insler@gmail.com",
+    "url": "http://www.mattinsler.com"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/mattinsler/coupler.git"
+  },
+  "bugs": {
+    "url": "https://github.com/mattinsler/coupler/issues"
+  },
+  "licenses": [
+    {
+      "type": "MIT",
+      "url": "https://github.com/mattinsler/coupler/blob/master/LICENSE-MIT"
+    }
+  ],
+  "main": "lib/coupler",
+  "engines": {
+    "node": ">= 0.6.0"
+  },
+  "scripts": {
+    "test": "grunt test"
+  },
+  "dependencies": {
+    "traverse": "~0.6.3",
+    "underscore": "~1.4.3"
+  },
+  "devDependencies": {
+    "mocha": "~1.7.0",
+    "grunt": "~0.3.15",
+    "grunt-contrib": "~0.3.0"
+  },
+  "keywords": []
+}
