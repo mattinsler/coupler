@@ -11,8 +11,15 @@
 
     function TransportProtocolStack(transport) {
       var _this = this;
-      this.transport = transport;
       TransportProtocolStack.__super__.constructor.apply(this, arguments);
+      Object.defineProperty(this, 'transport', {
+        set: function(value) {
+          return this.set_transport(value);
+        },
+        get: function() {
+          return this._transport;
+        }
+      });
       this.use({
         recv: function(data, next) {
           return next(null, data.packet);
@@ -21,20 +28,25 @@
           return _this.transport.write_packet(data);
         }
       });
-      this.transport.on('packet', function(buffer) {
+      this.transport = transport;
+    }
+
+    TransportProtocolStack.prototype.set_transport = function(transport) {
+      var _this = this;
+      if (this._transport != null) {
+        this._transport.close();
+      }
+      this._transport = transport;
+      if (transport == null) {
+        return;
+      }
+      ['connecting', 'connected', 'disconnected', 'reconnected', 'reconnecting', 'error'].forEach(function(evt) {
+        return transport.on(evt, _this.emit.bind(_this, evt));
+      });
+      return transport.on('packet', function(buffer) {
         return _this.recv(buffer);
       });
-      this.transport.on('connected', function() {
-        return _this.emit('connected', _this);
-      });
-      this.transport.on('close', function() {
-        return _this.emit('disconnected', _this);
-      });
-      this.transport.on('error', function(err) {
-        console.log(err.stack);
-        return _this.emit('error', err);
-      });
-    }
+    };
 
     return TransportProtocolStack;
 

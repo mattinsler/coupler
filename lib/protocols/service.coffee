@@ -23,10 +23,10 @@ class ServiceProtocol
     @consumed_services = {}
   
   initialize: ->
-    @remote.on 'connected', (next) =>
-      service.stack.emit('connected') for service in _(@services).values()
-      service.stack.emit('connected') for service in _(@consumed_services).values()
-      next()
+    ['connecting', 'connected', 'disconnected', 'reconnected', 'reconnecting'].forEach (evt) =>
+      @remote.on evt, (next, args...) =>
+        s.stack.emit(evt, args...) for s in _(@services).values().concat(_(@consumed_services).values())
+        next()
   
   provide: (opts) ->
     for k, v of opts

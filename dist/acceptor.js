@@ -13,11 +13,21 @@
       return Acceptor.__super__.constructor.apply(this, arguments);
     }
 
+    Acceptor.RequiredMethods = ['close', 'open'];
+
     Acceptor.types = {};
 
     Acceptor.register = function(type, acceptor_class) {
+      var m, _i, _len, _ref;
       if (this.types[type] != null) {
         throw new Error("Acceptor type " + type + " is already registered");
+      }
+      _ref = Acceptor.RequiredMethods;
+      for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+        m = _ref[_i];
+        if (!((acceptor_class.prototype[m] != null) && typeof acceptor_class.prototype[m] === 'function')) {
+          throw new Error(type + ': Acceptors must define ' + Acceptor.RequiredMethods.join(', '));
+        }
       }
       this.types[type] = acceptor_class;
       return this;
@@ -32,7 +42,8 @@
 
     Acceptor.prototype.accept_transport = function(transport) {
       transport.container = this.container;
-      return this.emit('connection', transport);
+      this.emit('connection', transport);
+      return transport.emit('connected');
     };
 
     return Acceptor;

@@ -1,7 +1,7 @@
 {
   "name": "coupler",
   "description": "Acceptor-Connector Multi-Transport Services",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "homepage": "https://github.com/mattinsler/coupler",
   "author": {
     "name": "Matt Insler",
@@ -21,7 +21,7 @@
       "url": "https://github.com/mattinsler/coupler/blob/master/LICENSE-MIT"
     }
   ],
-  "main": "lib/coupler",
+  "main": "dist/coupler",
   "engines": {
     "node": ">= 0.6.0"
   },

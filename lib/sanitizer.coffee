@@ -45,5 +45,4 @@ class Sanitizer
 
     obj.$d
     
-
-module.exports = (context) -> new Sanitizer(context)
+module.exports = Sanitizer

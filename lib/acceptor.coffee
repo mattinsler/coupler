@@ -1,10 +1,15 @@
 events = require 'events'
 
 class Acceptor extends events.EventEmitter
+  @RequiredMethods = ['close', 'open']
+  
   @types: {}
   
   @register: (type, acceptor_class) ->
     throw new Error("Acceptor type #{type} is already registered") if @types[type]?
+    for m in Acceptor.RequiredMethods
+      throw new Error(type + ': Acceptors must define ' + Acceptor.RequiredMethods.join(', ')) unless acceptor_class::[m]? and typeof acceptor_class::[m] is 'function'
+    
     @types[type] = acceptor_class
     @
   
@@ -15,5 +20,6 @@ class Acceptor extends events.EventEmitter
   accept_transport: (transport) ->
     transport.container = @container
     @emit('connection', transport)
+    transport.emit('connected')
 
 module.exports = Acceptor

@@ -65,8 +65,6 @@
 
   })();
 
-  module.exports = function(context) {
-    return new Sanitizer(context);
-  };
+  module.exports = Sanitizer;
 
 }).call(this);

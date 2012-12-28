@@ -1,8 +1,14 @@
 ProtocolStack = require './protocol_stack'
 
 class TransportProtocolStack extends ProtocolStack
-  constructor: (@transport) ->
+  constructor: (transport) ->
     super
+    
+    Object.defineProperty @, 'transport', {
+      set: (value) -> @set_transport(value)
+      get: -> @_transport
+    }
+    
     @use(
       recv: (data, next) =>
         # console.log 'TransportProtocolStack:recv] ' + require('util').inspect(data.packet.toString())
@@ -12,14 +18,21 @@ class TransportProtocolStack extends ProtocolStack
         @transport.write_packet(data)
     )
     
-    # ['connect', 'data', 'error', 'close', 'end', 'timeout'].forEach (evt) =>
-    #   @socket.on evt, => @emit("socket:#{evt}", @)
+    @transport = transport
+  
+  set_transport: (transport) ->
+    if @_transport?
+      @_transport.close()
     
-    @transport.on 'packet', (buffer) => @recv(buffer)
-    @transport.on 'connected', => @emit('connected', @)
-    @transport.on 'close', => @emit('disconnected', @)
-    @transport.on 'error', (err) =>
-      console.log err.stack
-      @emit('error', err)
+    @_transport = transport
+    
+    return unless transport?
+    
+    ['connecting', 'connected', 'disconnected', 'reconnected', 'reconnecting', 'error'].forEach (evt) =>
+      # transport.on evt, -> console.log 'Transport: ' + evt
+      transport.on(evt, @emit.bind(@, evt))
+      # transport.on evt, => @emit(evt, arguments...)
+    
+    transport.on 'packet', (buffer) => @recv(buffer)
 
 module.exports = TransportProtocolStack

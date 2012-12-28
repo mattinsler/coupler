@@ -13,11 +13,21 @@
       return Connector.__super__.constructor.apply(this, arguments);
     }
 
+    Connector.RequiredMethods = ['close', 'open'];
+
     Connector.types = {};
 
     Connector.register = function(type, connector_class) {
+      var m, _i, _len, _ref;
       if (this.types[type] != null) {
         throw new Error("Connector type " + type + " is already registered");
+      }
+      _ref = Connector.RequiredMethods;
+      for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+        m = _ref[_i];
+        if (!((connector_class.prototype[m] != null) && typeof connector_class.prototype[m] === 'function')) {
+          throw new Error(type + ': Connectors must define ' + Connector.RequiredMethods.join(', '));
+        }
       }
       this.types[type] = connector_class;
       return this;
@@ -32,7 +42,8 @@
 
     Connector.prototype.connect_transport = function(transport) {
       transport.container = this.container;
-      return this.emit('connection', transport);
+      this.emit('connection', transport);
+      return transport.emit('connected');
     };
 
     return Connector;

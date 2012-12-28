@@ -15,19 +15,29 @@
 
     __extends(TcpTransport, _super);
 
+    TcpTransport.Events = ['data', 'end', 'error', 'close', 'drain', 'pipe'];
+
     function TcpTransport(socket) {
-      var _this = this;
       this.socket = socket;
       this.buffer = new Buffer(0);
-      ['data', 'end', 'error', 'close', 'drain', 'pipe'].forEach(function(evt) {
-        return _this.socket.on(evt, function() {
-          var _name;
-          return typeof _this[_name = 'handle_' + evt] === "function" ? _this[_name].apply(_this, arguments) : void 0;
-        });
-      });
+      this._connect_events(this.socket);
     }
 
-    TcpTransport.prototype.handle_data = function(buffer) {
+    TcpTransport.prototype.close = function() {
+      this.removeAllListeners();
+      return this.socket.destroy();
+    };
+
+    TcpTransport.prototype._connect_events = function(socket) {
+      var _this = this;
+      return TcpTransport.Events.forEach(function(evt) {
+        if (_this['handle_' + evt] != null) {
+          return socket.on(evt, _this['handle_' + evt].bind(_this, socket));
+        }
+      });
+    };
+
+    TcpTransport.prototype.handle_data = function(socket, buffer) {
       var read_packet_from_buffer, _results,
         _this = this;
       this.buffer = Buffer.concat([this.buffer, buffer]);
@@ -56,7 +66,7 @@
       return _results;
     };
 
-    TcpTransport.prototype.handle_error = function(err) {
+    TcpTransport.prototype.handle_error = function(socket, err) {
       return this.emit('error', err);
     };
 
@@ -100,8 +110,12 @@
       this.server_opts = {
         port: port
       };
-      this.server = net.createServer(function() {
-        return _this.on_connection.apply(_this, arguments);
+      this.server = net.createServer();
+      ['listening', 'connection', 'close', 'error'].forEach(function(evt) {
+        return _this.server.on(evt, function() {
+          var _name;
+          return typeof _this[_name = 'handle_' + evt] === "function" ? _this[_name].apply(_this, arguments) : void 0;
+        });
       });
     }
 
@@ -109,11 +123,18 @@
       return this.server.listen(this.server_opts.port);
     };
 
-    TcpAcceptor.prototype.on_connection = function(socket) {
+    TcpAcceptor.prototype.close = function() {
+      return this.server.destroy();
+    };
+
+    TcpAcceptor.prototype.handle_error = function(err) {
+      return this.emit('error', err);
+    };
+
+    TcpAcceptor.prototype.handle_connection = function(socket) {
       var transport;
       transport = new TcpTransport(socket);
-      this.accept_transport(transport);
-      return transport.emit('connected');
+      return this.accept_transport(transport);
     };
 
     return TcpAcceptor;
@@ -151,27 +172,59 @@
 
     __extends(TcpConnector, _super);
 
+    TcpConnector.Events = ['connect', 'data', 'end', 'timeout', 'drain', 'error', 'close'];
+
+    TcpConnector.prototype.supports_reconnect = true;
+
     function TcpConnector(connection_string) {
       if (connection_string == null) {
         throw new Error('TcpConnector must be passed a connection string');
       }
+      this.sockets = [];
       this.connection_opts = parse_connection_string(connection_string);
     }
 
-    TcpConnector.prototype.open = function() {
-      var connection,
-        _this = this;
-      connection = net.connect(this.connection_opts);
-      return connection.on('connect', function() {
-        return _this.on_connection(connection);
+    TcpConnector.prototype._connect_events = function(socket) {
+      var _this = this;
+      return TcpConnector.Events.forEach(function(evt) {
+        if (_this['handle_' + evt] != null) {
+          return socket.on(evt, _this['handle_' + evt].bind(_this, socket));
+        }
       });
     };
 
-    TcpConnector.prototype.on_connection = function(socket) {
+    TcpConnector.prototype.open = function() {
+      var socket;
+      socket = net.connect(this.connection_opts);
+      this._connect_events(socket);
+      return this.sockets.push(socket);
+    };
+
+    TcpConnector.prototype.close = function() {
+      var s, _i, _len, _ref, _results;
+      _ref = this.sockets;
+      _results = [];
+      for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+        s = _ref[_i];
+        _results.push(s.destroy());
+      }
+      return _results;
+    };
+
+    TcpConnector.prototype.handle_error = function(socket, err) {
+      return this.emit('error', err);
+    };
+
+    TcpConnector.prototype.handle_close = function(socket) {
+      return this.sockets = this.sockets.filter(function(s) {
+        return s !== socket;
+      });
+    };
+
+    TcpConnector.prototype.handle_connect = function(socket) {
       var transport;
       transport = new TcpTransport(socket);
-      this.connect_transport(transport);
-      return transport.emit('connected');
+      return this.connect_transport(transport);
     };
 
     return TcpConnector;

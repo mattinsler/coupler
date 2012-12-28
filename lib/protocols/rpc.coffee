@@ -1,15 +1,19 @@
 _ = require 'underscore'
 events = require 'events'
-sanitizer = require '../sanitizer'
+Sanitizer = require '../sanitizer'
 
 class RpcClientProtocol
   constructor: (@name) ->
-    @sanitizer = sanitizer()
+    @sanitizer = new Sanitizer()
     @client = new events.EventEmitter()
     
   initialize: ->
-    @remote.on 'connected', (next) =>
-      @remote.send($m: 0)
+    @remote.on 'connected', (next) => @remote.send($m: 0)
+    ['connecting', 'disconnected', 'reconnected', 'reconnecting', 'error'].forEach (evt) =>
+      @remote.on evt, (next, args...) =>
+        @client.emit(evt, args...)
+        next()
+        # @client.emit.bind(@client, evt))
   
   recv: (data, next) ->
     # console.log 'RpcClientProtocol:recv] ' + require('util').inspect(data)
@@ -38,7 +42,7 @@ class RpcClientProtocol
 
 class RpcServerProtocol
   constructor: (@name, @service) ->
-    @sanitizer = sanitizer()
+    @sanitizer = new Sanitizer()
     @methods = _(@service).methods().sort().map (m, idx) -> [idx + 1, m]
     @methods = _(@methods).inject (o, arr) ->
       o[arr[0]] = arr[1]

@@ -1,7 +1,8 @@
 (function() {
   var ProtocolStack, ServiceProtocol, ServiceProtocolStack, rpc, _,
     __hasProp = {}.hasOwnProperty,
-    __extends = function(child, parent) { for (var key in parent) { if (__hasProp.call(parent, key)) child[key] = parent[key]; } function ctor() { this.constructor = child; } ctor.prototype = parent.prototype; child.prototype = new ctor(); child.__super__ = parent.prototype; return child; };
+    __extends = function(child, parent) { for (var key in parent) { if (__hasProp.call(parent, key)) child[key] = parent[key]; } function ctor() { this.constructor = child; } ctor.prototype = parent.prototype; child.prototype = new ctor(); child.__super__ = parent.prototype; return child; },
+    __slice = [].slice;
 
   _ = require('underscore');
 
@@ -46,19 +47,17 @@
 
     ServiceProtocol.prototype.initialize = function() {
       var _this = this;
-      return this.remote.on('connected', function(next) {
-        var service, _i, _j, _len, _len1, _ref, _ref1;
-        _ref = _(_this.services).values();
-        for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-          service = _ref[_i];
-          service.stack.emit('connected');
-        }
-        _ref1 = _(_this.consumed_services).values();
-        for (_j = 0, _len1 = _ref1.length; _j < _len1; _j++) {
-          service = _ref1[_j];
-          service.stack.emit('connected');
-        }
-        return next();
+      return ['connecting', 'connected', 'disconnected', 'reconnected', 'reconnecting'].forEach(function(evt) {
+        return _this.remote.on(evt, function() {
+          var args, next, s, _i, _len, _ref, _ref1;
+          next = arguments[0], args = 2 <= arguments.length ? __slice.call(arguments, 1) : [];
+          _ref = _(_this.services).values().concat(_(_this.consumed_services).values());
+          for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+            s = _ref[_i];
+            (_ref1 = s.stack).emit.apply(_ref1, [evt].concat(__slice.call(args)));
+          }
+          return next();
+        });
       });
     };
 

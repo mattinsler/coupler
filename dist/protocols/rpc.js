@@ -1,25 +1,34 @@
 (function() {
-  var RpcClientProtocol, RpcServerProtocol, events, sanitizer, _;
+  var RpcClientProtocol, RpcServerProtocol, Sanitizer, events, _,
+    __slice = [].slice;
 
   _ = require('underscore');
 
   events = require('events');
 
-  sanitizer = require('../sanitizer');
+  Sanitizer = require('../sanitizer');
 
   RpcClientProtocol = (function() {
 
     function RpcClientProtocol(name) {
       this.name = name;
-      this.sanitizer = sanitizer();
+      this.sanitizer = new Sanitizer();
       this.client = new events.EventEmitter();
     }
 
     RpcClientProtocol.prototype.initialize = function() {
       var _this = this;
-      return this.remote.on('connected', function(next) {
+      this.remote.on('connected', function(next) {
         return _this.remote.send({
           $m: 0
+        });
+      });
+      return ['connecting', 'disconnected', 'reconnected', 'reconnecting', 'error'].forEach(function(evt) {
+        return _this.remote.on(evt, function() {
+          var args, next, _ref;
+          next = arguments[0], args = 2 <= arguments.length ? __slice.call(arguments, 1) : [];
+          (_ref = _this.client).emit.apply(_ref, [evt].concat(__slice.call(args)));
+          return next();
         });
       });
     };
@@ -67,7 +76,7 @@
     function RpcServerProtocol(name, service) {
       this.name = name;
       this.service = service;
-      this.sanitizer = sanitizer();
+      this.sanitizer = new Sanitizer();
       this.methods = _(this.service).methods().sort().map(function(m, idx) {
         return [idx + 1, m];
       });
