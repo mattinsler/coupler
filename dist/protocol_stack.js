@@ -1,10 +1,12 @@
 (function() {
-  var List, ProtocolStack, events,
+  var ConnectionEmitter, List, ProtocolStack, events,
     __hasProp = {}.hasOwnProperty,
     __extends = function(child, parent) { for (var key in parent) { if (__hasProp.call(parent, key)) child[key] = parent[key]; } function ctor() { this.constructor = child; } ctor.prototype = parent.prototype; child.prototype = new ctor(); child.__super__ = parent.prototype; return child; },
     __slice = [].slice;
 
   events = require('events');
+
+  ConnectionEmitter = require('./connection_emitter');
 
   List = (function() {
     var Node;
@@ -149,14 +151,20 @@
     }
 
     ProtocolStack.prototype.use = function(module) {
-      var node,
+      var emitter, node,
         _this = this;
       node = this.stack.append(module);
+      emitter = new ConnectionEmitter();
       module.remote = {
-        __events__: {},
-        on: function(event, callback) {
-          return module.remote.__events__[event] = callback;
-        },
+        protocol_stack: this,
+        __emitter__: emitter,
+        on: emitter.on.bind(emitter),
+        once: emitter.once.bind(emitter),
+        addListener: emitter.addListener.bind(emitter),
+        removeListener: emitter.removeListener.bind(emitter),
+        removeAllListeners: emitter.removeAllListeners.bind(emitter),
+        listeners: emitter.listeners.bind(emitter),
+        emit: emitter.emit.bind(emitter),
         send: function(data) {
           return _this.send_step(node, data);
         }
@@ -193,6 +201,7 @@
         }
         return next();
       };
+      next.protocol_stack = this;
       return next.data = (_ref = (_base = node.list).data) != null ? _ref : _base.data = {};
     };
 
@@ -278,8 +287,8 @@
         }
       };
       this._add_next_methods(node, next, 'before');
-      if (node.data.remote.__events__[event] != null) {
-        return (_ref = node.data.remote.__events__)[event].apply(_ref, [next].concat(__slice.call(args)));
+      if (node.data.remote.listeners(event).length > 0) {
+        return (_ref = node.data.remote).emit.apply(_ref, [event, next].concat(__slice.call(args)));
       } else {
         return next();
       }

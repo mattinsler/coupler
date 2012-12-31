@@ -1,4 +1,5 @@
 events = require 'events'
+ConnectionEmitter = require './connection_emitter'
 
 class List
   @copy: (other) ->
@@ -94,10 +95,19 @@ class ProtocolStack extends events.EventEmitter
   use: (module) ->
     node = @stack.append(module)
     
+    emitter = new ConnectionEmitter()
     module.remote = {
-      __events__: {}
-      on: (event, callback) ->
-        module.remote.__events__[event] = callback
+      protocol_stack: @
+      
+      __emitter__: emitter
+      on: emitter.on.bind(emitter)
+      once: emitter.once.bind(emitter)
+      addListener: emitter.addListener.bind(emitter)
+      removeListener: emitter.removeListener.bind(emitter)
+      removeAllListeners: emitter.removeAllListeners.bind(emitter)
+      listeners: emitter.listeners.bind(emitter)
+      emit: emitter.emit.bind(emitter)
+      
       send: (data) =>
         @send_step(node, data)
     }
@@ -122,6 +132,7 @@ class ProtocolStack extends events.EventEmitter
         current = current['insert_' + pipe_direction](m)
       next()
     
+    next.protocol_stack = @
     next.data = node.list.data ?= {}
   
   recv_step: (node, buffer, callback) ->
@@ -182,11 +193,11 @@ class ProtocolStack extends events.EventEmitter
     
     @_add_next_methods(node, next, 'before')
     
-    if node.data.remote.__events__[event]?
-      node.data.remote.__events__[event](next, args...)
+    if node.data.remote.listeners(event).length > 0
+      node.data.remote.emit(event, next, args...)
     else
       next()
-  
+    
   emit: (event, args...) ->
     list = @stack.copy()
     @emit_step(list.head, event, args...)

@@ -1,7 +1,6 @@
 coupler = require 'coupler'
 
-c = coupler()
-echo_service = c.connect(tcp: 7070).consume('echo')
+echo_service = coupler.connect(tcp: 7070).consume('echo')
 
 echo_service.on 'connected', ->
   console.log 'CONNECTED'

@@ -7,6 +7,7 @@ class TcpTransport extends Transport
   @Events = ['data', 'end', 'error', 'close', 'drain', 'pipe']
   
   constructor: (@socket) ->
+    super
     @buffer = new Buffer(0)
     @_connect_events(@socket)
   

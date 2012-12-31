@@ -19,6 +19,7 @@
 
     function TcpTransport(socket) {
       this.socket = socket;
+      TcpTransport.__super__.constructor.apply(this, arguments);
       this.buffer = new Buffer(0);
       this._connect_events(this.socket);
     }

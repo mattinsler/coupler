@@ -74,6 +74,11 @@
           stack: new ServiceProtocolStack("s:" + k),
           rpc: rpc(k, v)
         };
+        Object.defineProperty(service.stack, 'transport', {
+          get: function() {
+            return _this.remote.protocol_stack.transport;
+          }
+        });
         service.stack.use(service.rpc);
         service.stack.on('send', function(data) {
           return _this.remote.send(data);
@@ -93,6 +98,11 @@
         stack: new ServiceProtocolStack("c:" + name),
         rpc: rpc(name)
       };
+      Object.defineProperty(service.stack, 'transport', {
+        get: function() {
+          return _this.remote.protocol_stack.transport;
+        }
+      });
       service.stack.use(service.rpc);
       service.stack.on('send', function(data) {
         return _this.remote.send(data);

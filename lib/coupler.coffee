@@ -7,17 +7,25 @@ Acceptor = require './acceptor'
 Connector = require './connector'
 TransportProtocolStack = require './transport_protocol_stack'
 
+intercept_events = (emitter, callback) ->
+  _emit = emitter.emit
+  emitter.emit = ->
+    callback?(emitter, arguments...)
+    _emit.apply(emitter, arguments)
+
 class Connection extends events.EventEmitter
   constructor: (@coupler, @initiator) ->
     @has_been_connected = false
     
     @stack = new TransportProtocolStack()
-    @stack.use(protocols.json())
-    @stack.use(@coupler.services)
+    @coupler.configure_protocol_stack(@stack)
+    
     @stack.on 'disconnected', => @reconnect()
+    intercept_events @stack, (emitter, args...) => @emit(args...)
     
     @initiator.on 'connection', (transport) =>
       @transport = transport
+      @transport.connection = @
       @stack.transport = @transport
       
       @stack.emit('reconnected') if @has_been_connected
@@ -52,7 +60,7 @@ class Connection extends events.EventEmitter
   consume: (service_name) ->
     @coupler.services.consume(service_name)
 
-class Coupler
+class Coupler extends events.EventEmitter
   constructor: ->
     @connections = []
     @services = protocols.service()
@@ -63,8 +71,9 @@ class Coupler
   accept: (opts = {}) ->
     for k, v of opts
       connection = new Connection(@, Acceptor.accept(k, v))
-      connection.on 'disconnected', =>
-        @connections = @connections.filter (c) -> c isnt connection
+      intercept_events connection, (emitter, args...) => @emit(args..., emitter)
+      # connection.on 'disconnected', =>
+      #   @connections = @connections.filter (c) -> c isnt connection
       @connections.push(connection)
       
       connection.start()
@@ -85,15 +94,28 @@ class Coupler
   
   provide: (opts) ->
     @services.provide(opts)
+    @
   
   disconnect: ->
     c.stop() for c in @connections
-
+  
+  configure_protocol_stack: (stack) ->
+    # stack.use(protocols.json())
+    stack.use(protocols.msgpack())
+    stack.use(@services)
 
 
 coupler = module.exports = -> new Coupler()
 coupler.connect = -> new Coupler().connect(arguments...)
 coupler.accept = -> new Coupler().accept(arguments...)
+coupler.service = (v) ->
+  throw new Error('Services must be an instance') unless _(v).isObject()
+  return v if v instanceof events.EventEmitter
+  c = v
+  c = c.__proto__ while c.__proto__ isnt Object.prototype
+  c.__proto__ = new events.EventEmitter()
+  v
+
 
 coupler.version = require('../package').version
 
@@ -101,6 +123,7 @@ coupler.Acceptor = require './acceptor'
 coupler.Connector = require './connector'
 coupler.Coupler = Coupler
 coupler.Connection = Connection
+coupler.ConnectionEmitter = require './connection_emitter'
 coupler.ProtocolStack = require './protocol_stack'
 coupler.Sanitizer = require './sanitizer'
 coupler.Transport = require './transport'

@@ -36,6 +36,10 @@ class ServiceProtocol
         stack: new ServiceProtocolStack("s:#{k}")
         rpc: rpc(k, v)
       }
+      Object.defineProperty service.stack, 'transport', {
+        get: =>
+          @remote.protocol_stack.transport
+      }
       service.stack.use(service.rpc)
       service.stack.on 'send', (data) => @remote.send(data)
       
@@ -47,6 +51,10 @@ class ServiceProtocol
     service = {
       stack: new ServiceProtocolStack("c:#{name}")
       rpc: rpc(name)
+    }
+    Object.defineProperty service.stack, 'transport', {
+      get: =>
+        @remote.protocol_stack.transport
     }
     service.stack.use(service.rpc)
     service.stack.on 'send', (data) => @remote.send(data)

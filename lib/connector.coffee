@@ -18,7 +18,6 @@ class Connector extends events.EventEmitter
     new @types[type](config)
   
   connect_transport: (transport) ->
-    transport.container = @container
     @emit('connection', transport)
     transport.emit('connected')
 

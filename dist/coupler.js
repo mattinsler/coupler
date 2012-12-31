@@ -1,5 +1,6 @@
 (function() {
-  var Acceptor, Connection, Connector, Coupler, TransportProtocolStack, coupler, events, file, fs, protocols, _, _i, _len, _ref,
+  var Acceptor, Connection, Connector, Coupler, TransportProtocolStack, coupler, events, file, fs, intercept_events, protocols, _, _i, _len, _ref,
+    __slice = [].slice,
     __hasProp = {}.hasOwnProperty,
     __extends = function(child, parent) { for (var key in parent) { if (__hasProp.call(parent, key)) child[key] = parent[key]; } function ctor() { this.constructor = child; } ctor.prototype = parent.prototype; child.prototype = new ctor(); child.__super__ = parent.prototype; return child; };
 
@@ -17,6 +18,17 @@
 
   TransportProtocolStack = require('./transport_protocol_stack');
 
+  intercept_events = function(emitter, callback) {
+    var _emit;
+    _emit = emitter.emit;
+    return emitter.emit = function() {
+      if (typeof callback === "function") {
+        callback.apply(null, [emitter].concat(__slice.call(arguments)));
+      }
+      return _emit.apply(emitter, arguments);
+    };
+  };
+
   Connection = (function(_super) {
 
     __extends(Connection, _super);
@@ -27,13 +39,18 @@
       this.initiator = initiator;
       this.has_been_connected = false;
       this.stack = new TransportProtocolStack();
-      this.stack.use(protocols.json());
-      this.stack.use(this.coupler.services);
+      this.coupler.configure_protocol_stack(this.stack);
       this.stack.on('disconnected', function() {
         return _this.reconnect();
       });
+      intercept_events(this.stack, function() {
+        var args, emitter;
+        emitter = arguments[0], args = 2 <= arguments.length ? __slice.call(arguments, 1) : [];
+        return _this.emit.apply(_this, args);
+      });
       this.initiator.on('connection', function(transport) {
         _this.transport = transport;
+        _this.transport.connection = _this;
         _this.stack.transport = _this.transport;
         if (_this.has_been_connected) {
           _this.stack.emit('reconnected');
@@ -81,7 +98,9 @@
 
   })(events.EventEmitter);
 
-  Coupler = (function() {
+  Coupler = (function(_super) {
+
+    __extends(Coupler, _super);
 
     function Coupler() {
       this.connections = [];
@@ -100,10 +119,10 @@
       for (k in opts) {
         v = opts[k];
         connection = new Connection(this, Acceptor.accept(k, v));
-        connection.on('disconnected', function() {
-          return _this.connections = _this.connections.filter(function(c) {
-            return c !== connection;
-          });
+        intercept_events(connection, function() {
+          var args, emitter;
+          emitter = arguments[0], args = 2 <= arguments.length ? __slice.call(arguments, 1) : [];
+          return _this.emit.apply(_this, __slice.call(args).concat([emitter]));
         });
         this.connections.push(connection);
         connection.start();
@@ -134,7 +153,8 @@
     };
 
     Coupler.prototype.provide = function(opts) {
-      return this.services.provide(opts);
+      this.services.provide(opts);
+      return this;
     };
 
     Coupler.prototype.disconnect = function() {
@@ -148,9 +168,14 @@
       return _results;
     };
 
+    Coupler.prototype.configure_protocol_stack = function(stack) {
+      stack.use(protocols.msgpack());
+      return stack.use(this.services);
+    };
+
     return Coupler;
 
-  })();
+  })(events.EventEmitter);
 
   coupler = module.exports = function() {
     return new Coupler();
@@ -166,6 +191,22 @@
     return (_ref = new Coupler()).accept.apply(_ref, arguments);
   };
 
+  coupler.service = function(v) {
+    var c;
+    if (!_(v).isObject()) {
+      throw new Error('Services must be an instance');
+    }
+    if (v instanceof events.EventEmitter) {
+      return v;
+    }
+    c = v;
+    while (c.__proto__ !== Object.prototype) {
+      c = c.__proto__;
+    }
+    c.__proto__ = new events.EventEmitter();
+    return v;
+  };
+
   coupler.version = require('../package').version;
 
   coupler.Acceptor = require('./acceptor');
@@ -175,6 +216,8 @@
   coupler.Coupler = Coupler;
 
   coupler.Connection = Connection;
+
+  coupler.ConnectionEmitter = require('./connection_emitter');
 
   coupler.ProtocolStack = require('./protocol_stack');
 

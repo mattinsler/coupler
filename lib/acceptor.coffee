@@ -18,7 +18,6 @@ class Acceptor extends events.EventEmitter
     new @types[type](config)
   
   accept_transport: (transport) ->
-    transport.container = @container
     @emit('connection', transport)
     transport.emit('connected')
 
