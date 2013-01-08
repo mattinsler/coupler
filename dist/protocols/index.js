@@ -7,10 +7,10 @@
 
   module.exports = _(fs.readdirSync(__dirname)).inject(function(o, filename) {
     var name;
-    if (!/\.js$/.test(filename)) {
+    if (!/\.(js|coffee)$/.test(filename)) {
       return o;
     }
-    name = filename.replace(/\.(js)$/, '');
+    name = filename.replace(/\.(js|coffee)$/, '');
     if (name !== 'index') {
       o[name] = require(__dirname + '/' + filename);
     }

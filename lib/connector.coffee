@@ -19,6 +19,5 @@ class Connector extends events.EventEmitter
   
   connect_transport: (transport) ->
     @emit('connection', transport)
-    transport.emit('connected')
 
 module.exports = Connector

@@ -41,8 +41,7 @@
     };
 
     Acceptor.prototype.accept_transport = function(transport) {
-      this.emit('connection', transport);
-      return transport.emit('connected');
+      return this.emit('connection', transport);
     };
 
     return Acceptor;

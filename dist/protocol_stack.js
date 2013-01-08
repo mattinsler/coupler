@@ -1,12 +1,10 @@
 (function() {
-  var ConnectionEmitter, List, ProtocolStack, events,
+  var EventEmitter, List, ProtocolStack,
     __hasProp = {}.hasOwnProperty,
     __extends = function(child, parent) { for (var key in parent) { if (__hasProp.call(parent, key)) child[key] = parent[key]; } function ctor() { this.constructor = child; } ctor.prototype = parent.prototype; child.prototype = new ctor(); child.__super__ = parent.prototype; return child; },
     __slice = [].slice;
 
-  events = require('events');
-
-  ConnectionEmitter = require('./connection_emitter');
+  EventEmitter = require('events').EventEmitter;
 
   List = (function() {
     var Node;
@@ -150,25 +148,28 @@
       this.stack = new List();
     }
 
-    ProtocolStack.prototype.use = function(module) {
-      var emitter, node,
-        _this = this;
-      node = this.stack.append(module);
-      emitter = new ConnectionEmitter();
+    ProtocolStack.prototype.build_remote = function(module, node) {
+      var _this = this;
       module.remote = {
         protocol_stack: this,
-        __emitter__: emitter,
-        on: emitter.on.bind(emitter),
-        once: emitter.once.bind(emitter),
-        addListener: emitter.addListener.bind(emitter),
-        removeListener: emitter.removeListener.bind(emitter),
-        removeAllListeners: emitter.removeAllListeners.bind(emitter),
-        listeners: emitter.listeners.bind(emitter),
-        emit: emitter.emit.bind(emitter),
+        __emitter__: new EventEmitter(),
         send: function(data) {
           return _this.send_step(node, data);
         }
       };
+      module.remote.on = module.remote.__emitter__.on.bind(module.remote.__emitter__);
+      module.remote.once = module.remote.__emitter__.once.bind(module.remote.__emitter__);
+      module.remote.addListener = module.remote.__emitter__.addListener.bind(module.remote.__emitter__);
+      module.remote.removeListener = module.remote.__emitter__.removeListener.bind(module.remote.__emitter__);
+      module.remote.removeAllListeners = module.remote.__emitter__.removeAllListeners.bind(module.remote.__emitter__);
+      module.remote.listeners = module.remote.__emitter__.listeners.bind(module.remote.__emitter__);
+      return module.remote.emit = module.remote.__emitter__.emit.bind(module.remote.__emitter__);
+    };
+
+    ProtocolStack.prototype.use = function(module) {
+      var node;
+      node = this.stack.append(module);
+      this.build_remote(module, node);
       return typeof module.initialize === "function" ? module.initialize() : void 0;
     };
 
@@ -272,7 +273,7 @@
         _this = this;
       node = arguments[0], event = arguments[1], args = 3 <= arguments.length ? __slice.call(arguments, 2) : [];
       if (node == null) {
-        return events.EventEmitter.prototype.emit.apply(this, [event].concat(args));
+        return EventEmitter.prototype.emit.apply(this, [event].concat(args));
       }
       next = function() {
         var err, new_args, new_event;
@@ -303,7 +304,7 @@
 
     return ProtocolStack;
 
-  })(events.EventEmitter);
+  })(EventEmitter);
 
   module.exports = ProtocolStack;
 

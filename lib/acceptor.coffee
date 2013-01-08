@@ -19,6 +19,5 @@ class Acceptor extends events.EventEmitter
   
   accept_transport: (transport) ->
     @emit('connection', transport)
-    transport.emit('connected')
 
 module.exports = Acceptor

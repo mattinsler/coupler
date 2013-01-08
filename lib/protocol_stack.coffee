@@ -1,5 +1,4 @@
-events = require 'events'
-ConnectionEmitter = require './connection_emitter'
+EventEmitter = require('events').EventEmitter
 
 class List
   @copy: (other) ->
@@ -88,29 +87,29 @@ class List
       current = current.prev
 
 
-class ProtocolStack extends events.EventEmitter
+class ProtocolStack extends EventEmitter
   constructor: ->
     @stack = new List()
+  
+  build_remote: (module, node) ->
+    module.remote = {
+      protocol_stack: @
+      __emitter__: new EventEmitter()
+      send: (data) =>
+        @send_step(node, data)
+    }
+    module.remote.on = module.remote.__emitter__.on.bind(module.remote.__emitter__)
+    module.remote.once = module.remote.__emitter__.once.bind(module.remote.__emitter__)
+    module.remote.addListener = module.remote.__emitter__.addListener.bind(module.remote.__emitter__)
+    module.remote.removeListener = module.remote.__emitter__.removeListener.bind(module.remote.__emitter__)
+    module.remote.removeAllListeners = module.remote.__emitter__.removeAllListeners.bind(module.remote.__emitter__)
+    module.remote.listeners = module.remote.__emitter__.listeners.bind(module.remote.__emitter__)
+    module.remote.emit = module.remote.__emitter__.emit.bind(module.remote.__emitter__)
   
   use: (module) ->
     node = @stack.append(module)
     
-    emitter = new ConnectionEmitter()
-    module.remote = {
-      protocol_stack: @
-      
-      __emitter__: emitter
-      on: emitter.on.bind(emitter)
-      once: emitter.once.bind(emitter)
-      addListener: emitter.addListener.bind(emitter)
-      removeListener: emitter.removeListener.bind(emitter)
-      removeAllListeners: emitter.removeAllListeners.bind(emitter)
-      listeners: emitter.listeners.bind(emitter)
-      emit: emitter.emit.bind(emitter)
-      
-      send: (data) =>
-        @send_step(node, data)
-    }
+    @build_remote(module, node)
     
     module.initialize?()
   
@@ -182,7 +181,7 @@ class ProtocolStack extends events.EventEmitter
     @send_step(list.tail, buffer, callback)
   
   emit_step: (node, event, args...) ->
-    return events.EventEmitter::emit.apply(@, [event].concat(args)) unless node?
+    return EventEmitter::emit.apply(@, [event].concat(args)) unless node?
     
     next = (err, new_event, new_args...) =>
       return console.error(err.stack) if err?

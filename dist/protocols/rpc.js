@@ -1,5 +1,5 @@
 (function() {
-  var ConnectionEmitter, RpcClientProtocol, RpcServerProtocol, Sanitizer, events, _,
+  var ConnectionEmitter, RpcClientProtocol, RpcServerProtocol, Sanitizer, events, get_instance_methods, _,
     __slice = [].slice;
 
   _ = require('underscore');
@@ -18,14 +18,14 @@
       this.sanitizer = new Sanitizer();
       this.client = new ConnectionEmitter();
       this.client.__rpc_queue = [];
-      this.client.on('connected', function() {
+      this.client.on('coupler:connected', function() {
         return _this.flush_rpc_queue();
       });
     }
 
     RpcClientProtocol.prototype.initialize = function() {
       var _this = this;
-      this.remote.on('connected', function(next) {
+      this.remote.on('connected', function() {
         return _this.remote.send({
           $m: 0
         });
@@ -34,7 +34,7 @@
         return _this.remote.on(evt, function() {
           var args, next, _ref;
           next = arguments[0], args = 2 <= arguments.length ? __slice.call(arguments, 1) : [];
-          (_ref = _this.client).emit.apply(_ref, [evt].concat(__slice.call(args)));
+          (_ref = _this.client).emit.apply(_ref, ['coupler:' + evt].concat(__slice.call(args)));
           return next();
         });
       });
@@ -83,7 +83,7 @@
         _this = this;
       if (data.$r === 0) {
         this.set_remote_methods(data.$a);
-        return this.client.emit('connected');
+        return this.client.emit('coupler:connected');
       }
       method = this.sanitizer.methods[data.$r];
       if (method == null) {
@@ -106,61 +106,113 @@
 
   })();
 
+  get_instance_methods = function(instance) {
+    var get_methods, methods;
+    get_methods = function(v) {
+      return _(Object.getOwnPropertyNames(v).filter(function(m) {
+        return typeof v[m] === 'function';
+      })).without('constructor');
+    };
+    methods = get_methods(instance);
+    if (methods.length === 0) {
+      methods = get_methods(instance.__proto__);
+    }
+    methods = methods.sort().map(function(m, idx) {
+      return [idx + 1, m];
+    });
+    return _(methods).inject(function(o, arr) {
+      o[arr[0]] = arr[1];
+      return o;
+    }, {});
+  };
+
   RpcServerProtocol = (function() {
+    var InstanceService, MethodService;
+
+    MethodService = (function() {
+
+      function MethodService(service_initializer) {
+        this.emitter = new ConnectionEmitter();
+        this.service = service_initializer(this.emitter);
+        this.methods = get_instance_methods(this.service);
+      }
+
+      MethodService.prototype.emit = function(event) {
+        return this.emitter.emit(event);
+      };
+
+      MethodService.prototype.call_method = function(method, args) {
+        var _ref;
+        return (_ref = this.service)[method].apply(_ref, args);
+      };
+
+      return MethodService;
+
+    })();
+
+    InstanceService = (function() {
+
+      function InstanceService(instance) {
+        this.context = {};
+        this.service = instance;
+        this.methods = get_instance_methods(this.service);
+      }
+
+      InstanceService.prototype.emit = function(event) {
+        var _base;
+        return typeof (_base = this.service).emit === "function" ? _base.emit(event, this.context) : void 0;
+      };
+
+      InstanceService.prototype.call_method = function(method, args) {
+        return this.service[method].apply(this.context, args);
+      };
+
+      return InstanceService;
+
+    })();
 
     function RpcServerProtocol(name, service) {
-      var get_methods, methods;
       this.name = name;
       this.service = service;
       this.sanitizer = new Sanitizer();
-      get_methods = function(v) {
-        return _(Object.getOwnPropertyNames(v).filter(function(m) {
-          return typeof v[m] === 'function';
-        })).without('constructor');
-      };
-      methods = get_methods(this.service);
-      if (methods.length === 0) {
-        methods = get_methods(this.service.__proto__);
-      }
-      methods = methods.sort().map(function(m, idx) {
-        return [idx + 1, m];
-      });
-      this.methods = _(methods).inject(function(o, arr) {
-        o[arr[0]] = arr[1];
-        return o;
-      }, {});
     }
 
     RpcServerProtocol.prototype.initialize = function() {
       var _this = this;
       return ['connected', 'disconnected'].forEach(function(evt) {
         return _this.remote.on(evt, function(next) {
-          var conn, _base, _name, _ref, _ref1;
-          conn = next.protocol_stack.transport.connection;
+          var conn, rpc_instance, _ref;
+          conn = next.protocol_stack.connection;
           if ((_ref = conn.__rpc__) == null) {
             conn.__rpc__ = {};
           }
-          if ((_ref1 = (_base = conn.__rpc__)[_name = _this.name]) == null) {
-            _base[_name] = {};
+          rpc_instance = conn.__rpc__[_this.name];
+          if (rpc_instance == null) {
+            if (typeof _this.service === 'function') {
+              rpc_instance = conn.__rpc__[_this.name] = new MethodService(_this.service);
+            } else {
+              rpc_instance = conn.__rpc__[_this.name] = new InstanceService(_this.service);
+            }
           }
-          return _this.service.emit(evt, conn.__rpc__[_this.name]);
+          return rpc_instance.emit(evt);
         });
       });
     };
 
     RpcServerProtocol.prototype.recv = function(data, next) {
-      var args, method,
+      var args, method, rpc_instance,
         _this = this;
+      rpc_instance = next.protocol_stack.connection.__rpc__[this.name];
       if (data.$m === 0) {
         return next.send({
           $r: 0,
-          $a: this.methods
+          $a: rpc_instance.methods
         });
       }
       if (data.$m >= 1000) {
         method = this.sanitizer.methods[data.$m];
       } else {
-        method = this.methods[data.$m];
+        method = rpc_instance.methods[data.$m];
       }
       if (method == null) {
         return next();
@@ -174,7 +226,7 @@
       if (typeof method === 'function') {
         return method.apply(null, args);
       } else if (typeof method === 'string') {
-        return this.service[method].apply(next.protocol_stack.transport.connection.__rpc__[this.name], args);
+        rpc_instance.call_method(method, args);
       }
       return next();
     };
