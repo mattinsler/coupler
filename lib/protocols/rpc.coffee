@@ -6,7 +6,10 @@ ConnectionEmitter = require '../connection_emitter'
 class RpcClientProtocol
   constructor: (@name) ->
     @sanitizer = new Sanitizer()
-    @client = new ConnectionEmitter()
+    @client = new ConnectionEmitter(
+      connected: 'coupler:connected'
+      disconnected: 'coupler:disconnected'
+    )
     @client.__rpc_queue = []
     @client.on 'coupler:connected', => @flush_rpc_queue()
   
@@ -76,7 +79,10 @@ get_instance_methods = (instance) ->
 class RpcServerProtocol
   class MethodService
     constructor: (service_initializer) ->
-      @emitter = new ConnectionEmitter()
+      @emitter = new ConnectionEmitter(
+        connected: 'coupler:connected'
+        disconnected: 'coupler:disconnected'
+      )
       @service = service_initializer(@emitter)
       @methods = get_instance_methods(@service)
     emit: (event) ->
@@ -89,6 +95,9 @@ class RpcServerProtocol
       @context = {}
       @service = instance
       @methods = get_instance_methods(@service)
+      if @service.__options__.events?
+        @service.__options__.events.connected = 'coupler:connected'
+        @service.__options__.events.disconnected = 'coupler:disconnected'
     emit: (event) ->
       @service.emit?(event, @context)
     call_method: (method, args) ->
@@ -112,7 +121,7 @@ class RpcServerProtocol
           else
             rpc_instance = conn.__rpc__[@name] = new InstanceService(@service)
         
-        rpc_instance.emit(evt)
+        rpc_instance.emit('coupler:' + evt)
   
   recv: (data, next) ->
     # console.log 'RpcServerProtocol:recv] ' + require('util').inspect(data)

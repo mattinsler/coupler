@@ -16,7 +16,10 @@
       var _this = this;
       this.name = name;
       this.sanitizer = new Sanitizer();
-      this.client = new ConnectionEmitter();
+      this.client = new ConnectionEmitter({
+        connected: 'coupler:connected',
+        disconnected: 'coupler:disconnected'
+      });
       this.client.__rpc_queue = [];
       this.client.on('coupler:connected', function() {
         return _this.flush_rpc_queue();
@@ -132,7 +135,10 @@
     MethodService = (function() {
 
       function MethodService(service_initializer) {
-        this.emitter = new ConnectionEmitter();
+        this.emitter = new ConnectionEmitter({
+          connected: 'coupler:connected',
+          disconnected: 'coupler:disconnected'
+        });
         this.service = service_initializer(this.emitter);
         this.methods = get_instance_methods(this.service);
       }
@@ -156,6 +162,10 @@
         this.context = {};
         this.service = instance;
         this.methods = get_instance_methods(this.service);
+        if (this.service.__options__.events != null) {
+          this.service.__options__.events.connected = 'coupler:connected';
+          this.service.__options__.events.disconnected = 'coupler:disconnected';
+        }
       }
 
       InstanceService.prototype.emit = function(event) {
@@ -194,7 +204,7 @@
               rpc_instance = conn.__rpc__[_this.name] = new InstanceService(_this.service);
             }
           }
-          return rpc_instance.emit(evt);
+          return rpc_instance.emit('coupler:' + evt);
         });
       });
     };

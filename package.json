@@ -30,7 +30,8 @@
   },
   "dependencies": {
     "traverse": "~0.6.3",
-    "underscore": "~1.4.3"
+    "underscore": "~1.4.3",
+    "msgpack3": "~0.1.2"
   },
   "devDependencies": {
     "mocha": "~1.7.0",

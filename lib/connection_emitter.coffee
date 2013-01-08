@@ -27,29 +27,28 @@ class ConnectionEmitter extends EventEmitter
     
     emitter
   
-  constructor: (follow_emitter) ->
-    super
+  constructor: (opts = {}) ->
+    super()
     
-    if follow_emitter?
-      Object.defineProperty @, '_emitter_state', {
-        get: ->
-          follow_emitter._emitter_state
-        enumerable: true
+    @__options__ = {
+      events: {
+        connected: opts.connected or 'connected'
+        disconnected: opts.disconnected or 'disconnected'
       }
-    else
-      @_emitter_state = {
-        emitted: {}
-      }
+    }
+    
+    @_emitter_state = {
+      emitted: {}
+    }
   
   _handle_add_listener: (event, handler) ->    
-    if event is 'connected' and ConnectionEmitter.is_connected(@)
-      return process.nextTick => handler(@_emitter_state.emitted['connected']...)
-    if event is 'disconnected' and ConnectionEmitter.is_disconnected(@)
-      return process.nextTick => handler(@_emitter_state.emitted['disconnected']...)
+    if event is @__options__.events.connected and ConnectionEmitter.is_connected(@)
+      return process.nextTick => handler(@_emitter_state.emitted[@__options__.events.connected]...)
+    if event is @__options__.events.disconnected and ConnectionEmitter.is_disconnected(@)
+      return process.nextTick => handler(@_emitter_state.emitted[@__options__.events.disconnected]...)
     false
   
   on: (event, handler) ->
-    # console.log 'on ' + event
     @_handle_add_listener(event, handler)
     EventEmitter::on.apply(@, arguments)
   
@@ -62,12 +61,10 @@ class ConnectionEmitter extends EventEmitter
     EventEmitter::once.apply(@, arguments)
   
   emit: (event, args...) ->
-    # console.log 'emit ' + event
-    
     unless Object.getOwnPropertyDescriptor(@, '_emitter_state').get?
       switch event
-        when 'connected' then @_emitter_state.connected = true
-        when 'disconnected' then @_emitter_state.connected = false
+        when @__options__.events.connected then @_emitter_state.connected = true
+        when @__options__.events.disconnected then @_emitter_state.connected = false
     
       @_emitter_state.emitted[event] = args
     

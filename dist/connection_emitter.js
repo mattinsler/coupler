@@ -45,32 +45,32 @@
       return emitter;
     };
 
-    function ConnectionEmitter(follow_emitter) {
-      ConnectionEmitter.__super__.constructor.apply(this, arguments);
-      if (follow_emitter != null) {
-        Object.defineProperty(this, '_emitter_state', {
-          get: function() {
-            return follow_emitter._emitter_state;
-          },
-          enumerable: true
-        });
-      } else {
-        this._emitter_state = {
-          emitted: {}
-        };
+    function ConnectionEmitter(opts) {
+      if (opts == null) {
+        opts = {};
       }
+      ConnectionEmitter.__super__.constructor.call(this);
+      this.__options__ = {
+        events: {
+          connected: opts.connected || 'connected',
+          disconnected: opts.disconnected || 'disconnected'
+        }
+      };
+      this._emitter_state = {
+        emitted: {}
+      };
     }
 
     ConnectionEmitter.prototype._handle_add_listener = function(event, handler) {
       var _this = this;
-      if (event === 'connected' && ConnectionEmitter.is_connected(this)) {
+      if (event === this.__options__.events.connected && ConnectionEmitter.is_connected(this)) {
         return process.nextTick(function() {
-          return handler.apply(null, _this._emitter_state.emitted['connected']);
+          return handler.apply(null, _this._emitter_state.emitted[_this.__options__.events.connected]);
         });
       }
-      if (event === 'disconnected' && ConnectionEmitter.is_disconnected(this)) {
+      if (event === this.__options__.events.disconnected && ConnectionEmitter.is_disconnected(this)) {
         return process.nextTick(function() {
-          return handler.apply(null, _this._emitter_state.emitted['disconnected']);
+          return handler.apply(null, _this._emitter_state.emitted[_this.__options__.events.disconnected]);
         });
       }
       return false;
@@ -98,10 +98,10 @@
       event = arguments[0], args = 2 <= arguments.length ? __slice.call(arguments, 1) : [];
       if (Object.getOwnPropertyDescriptor(this, '_emitter_state').get == null) {
         switch (event) {
-          case 'connected':
+          case this.__options__.events.connected:
             this._emitter_state.connected = true;
             break;
-          case 'disconnected':
+          case this.__options__.events.disconnected:
             this._emitter_state.connected = false;
         }
         this._emitter_state.emitted[event] = args;
