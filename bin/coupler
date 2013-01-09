@@ -1,0 +1,5 @@
+#!/usr/bin/env node
+
+var coupler = require('../dist/coupler');
+
+new coupler.REPL().start();

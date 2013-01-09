@@ -36,6 +36,7 @@ class RpcClientProtocol
   
   set_remote_methods: (methods) ->
     @remote_methods = methods
+    @client.__methods__ = _(methods).values().sort()
     
     _(@remote_methods).each (method, id) =>
       @client[method] = =>
@@ -95,7 +96,7 @@ class RpcServerProtocol
       @context = {}
       @service = instance
       @methods = get_instance_methods(@service)
-      if @service.__options__.events?
+      if @service.__options__?.events?
         @service.__options__.events.connected = 'coupler:connected'
         @service.__options__.events.disconnected = 'coupler:disconnected'
     emit: (event) ->

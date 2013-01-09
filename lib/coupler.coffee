@@ -152,6 +152,7 @@ coupler.Coupler = Coupler
 coupler.Connection = Connection
 coupler.ConnectionEmitter = require './connection_emitter'
 coupler.ProtocolStack = require './protocol_stack'
+coupler.REPL = require './repl'
 coupler.Sanitizer = require './sanitizer'
 coupler.Transport = require './transport'
 coupler.TransportProtocolStack = require './transport_protocol_stack'

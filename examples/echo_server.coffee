@@ -23,12 +23,12 @@ echo_service = coupler.service(
 
 connected_count = 0
 
-echo_service.on 'connected', (instance) ->
+echo_service.on 'coupler:connected', (instance) ->
   ++connected_count
   console.log 'CONNECTED ' + connected_count
   instance.id = connected_count
 
-echo_service.on 'disconnected', (instance) ->
+echo_service.on 'coupler:disconnected', (instance) ->
   console.log 'DISCONNECTED'
   console.log arguments
 

@@ -5,13 +5,13 @@ c = coupler.connect(tcp: 7070)
 d = coupler.connect(tcp: 7070)
 
 s = c.consume(0)
-s.on 'connected', ->
+s.on 'coupler:connected', ->
   s.list (list) ->
     console.log list
 
 setTimeout ->
   s2 = d.consume(0)
-  s2.on 'connected', ->
+  s2.on 'coupler:connected', ->
     s2.list (list) ->
       console.log list
 , 2000
@@ -34,7 +34,7 @@ echo_service = d.consume('echo')
 
 # echo_service = coupler.connect(tcp: 7070).consume('echo')
 # 
-echo_service.on 'connected', ->
+echo_service.on 'coupler:connected', ->
   console.log 'CONNECTED'
   
   echo_service.echo 'Hello World!', (err, message, cb) ->

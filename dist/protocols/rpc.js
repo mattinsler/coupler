@@ -72,6 +72,7 @@
     RpcClientProtocol.prototype.set_remote_methods = function(methods) {
       var _this = this;
       this.remote_methods = methods;
+      this.client.__methods__ = _(methods).values().sort();
       return _(this.remote_methods).each(function(method, id) {
         return _this.client[method] = function() {
           var args;
@@ -159,10 +160,11 @@
     InstanceService = (function() {
 
       function InstanceService(instance) {
+        var _ref;
         this.context = {};
         this.service = instance;
         this.methods = get_instance_methods(this.service);
-        if (this.service.__options__.events != null) {
+        if (((_ref = this.service.__options__) != null ? _ref.events : void 0) != null) {
           this.service.__options__.events.connected = 'coupler:connected';
           this.service.__options__.events.disconnected = 'coupler:disconnected';
         }

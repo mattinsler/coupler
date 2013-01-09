@@ -175,6 +175,8 @@
 
   coupler.ProtocolStack = require('./protocol_stack');
 
+  coupler.REPL = require('./repl');
+
   coupler.Sanitizer = require('./sanitizer');
 
   coupler.Transport = require('./transport');
