@@ -1,3 +1,4 @@
+_ = require 'underscore'
 repl = require 'repl'
 coupler = require './coupler'
 
@@ -8,41 +9,41 @@ class REPL
     @methods = {
       exit: (callback) -> process.exit()
 
-      connect: (callback, address) ->
+      connect: (callback, address) =>
         consumed_service = null
-        connection = coupler.connect(tcp: address)
-        connection.on 'error', (err) ->
+        @connection = coupler.connect(tcp: address)
+        @connection.on 'error', (err) ->
           callback(err.stack)
-        connection.on 'connected', ->
+        @connection.on 'connected', ->
           callback(null, 'Connected!')
 
-      list: (callback, type) ->
-        return callback('Must be connected first') unless connection?
+      list: (callback, type) =>
+        return callback('Must be connected first') unless @connection?
 
         unless type?
-          type = if consumed_service? then 'commands' else 'services'
+          type = if @consumed_service? then 'commands' else 'services'
 
         switch type
           when 'services'
-            s = connection.consume(0)
+            s = @connection.consume(0)
             s.on 'coupler:connected', ->
               s.list (list) ->
                 callback(null, list.join('\n'))
           when 'commands'
-            callback(null, consumed_service.__methods__.join(', '))
+            callback(null, @consumed_service.__methods__.join(', '))
           else
             help(callback, list)
 
-      consume: (callback, service_name) ->
-        return callback('Must be connected first') unless connection?
+      consume: (callback, service_name) =>
+        return callback('Must be connected first') unless @connection?
 
-        consumed_service = connection.consume(service_name)
-        consumed_service.on 'coupler:connected', ->
+        @consumed_service = @connection.consume(service_name)
+        @consumed_service.on 'coupler:connected', ->
           callback(null, 'Consuming ' + service_name)
 
-      call: (callback, method, args...) ->
-        return callback('Must be connected first') unless connection?
-        return callback('Must consume a service first') unless consumed_service?
+      call: (callback, method, args...) =>
+        return callback('Must be connected first') unless @connection?
+        return callback('Must consume a service first') unless @consumed_service?
 
         has_callback = false
         args = args.map (a) ->
@@ -51,7 +52,7 @@ class REPL
             return callback
           a
 
-        result = consumed_service[method](args...)
+        result = @consumed_service[method](args...)
         callback(null, result) unless has_callback
 
       help: (callback, command) ->
@@ -74,7 +75,7 @@ class REPL
     @repl = repl.start(
       prompt: '$ '
       terminal: true
-      eval: (command, context, filename, callback) ->
+      eval: (command, context, filename, callback) =>
         command = command[1...command.length - 2].trim()
         args = command.split(new RegExp(' +'))
         cmd = args[0]

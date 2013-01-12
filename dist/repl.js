@@ -1,6 +1,8 @@
 (function() {
-  var REPL, coupler, repl,
+  var REPL, coupler, repl, _,
     __slice = [].slice;
+
+  _ = require('underscore');
 
   repl = require('repl');
 
@@ -9,6 +11,7 @@
   REPL = (function() {
 
     function REPL() {
+      var _this = this;
       this.connection = null;
       this.consumed_service = null;
       this.methods = {
@@ -16,57 +19,56 @@
           return process.exit();
         },
         connect: function(callback, address) {
-          var connection, consumed_service;
+          var consumed_service;
           consumed_service = null;
-          connection = coupler.connect({
+          _this.connection = coupler.connect({
             tcp: address
           });
-          connection.on('error', function(err) {
+          _this.connection.on('error', function(err) {
             return callback(err.stack);
           });
-          return connection.on('connected', function() {
+          return _this.connection.on('connected', function() {
             return callback(null, 'Connected!');
           });
         },
         list: function(callback, type) {
           var s;
-          if (typeof connection === "undefined" || connection === null) {
+          if (_this.connection == null) {
             return callback('Must be connected first');
           }
           if (type == null) {
-            type = typeof consumed_service !== "undefined" && consumed_service !== null ? 'commands' : 'services';
+            type = _this.consumed_service != null ? 'commands' : 'services';
           }
           switch (type) {
             case 'services':
-              s = connection.consume(0);
+              s = _this.connection.consume(0);
               return s.on('coupler:connected', function() {
                 return s.list(function(list) {
                   return callback(null, list.join('\n'));
                 });
               });
             case 'commands':
-              return callback(null, consumed_service.__methods__.join(', '));
+              return callback(null, _this.consumed_service.__methods__.join(', '));
             default:
               return help(callback, list);
           }
         },
         consume: function(callback, service_name) {
-          var consumed_service;
-          if (typeof connection === "undefined" || connection === null) {
+          if (_this.connection == null) {
             return callback('Must be connected first');
           }
-          consumed_service = connection.consume(service_name);
-          return consumed_service.on('coupler:connected', function() {
+          _this.consumed_service = _this.connection.consume(service_name);
+          return _this.consumed_service.on('coupler:connected', function() {
             return callback(null, 'Consuming ' + service_name);
           });
         },
         call: function() {
-          var args, callback, has_callback, method, result;
+          var args, callback, has_callback, method, result, _ref;
           callback = arguments[0], method = arguments[1], args = 3 <= arguments.length ? __slice.call(arguments, 2) : [];
-          if (typeof connection === "undefined" || connection === null) {
+          if (_this.connection == null) {
             return callback('Must be connected first');
           }
-          if (typeof consumed_service === "undefined" || consumed_service === null) {
+          if (_this.consumed_service == null) {
             return callback('Must consume a service first');
           }
           has_callback = false;
@@ -77,7 +79,7 @@
             }
             return a;
           });
-          result = consumed_service[method].apply(consumed_service, args);
+          result = (_ref = _this.consumed_service)[method].apply(_ref, args);
           if (!has_callback) {
             return callback(null, result);
           }
@@ -103,6 +105,7 @@
     }
 
     REPL.prototype.start = function() {
+      var _this = this;
       if (this.repl != null) {
         return;
       }
@@ -118,10 +121,10 @@
           if (cmd === '' && args.length === 0) {
             return callback();
           }
-          if (this.methods[cmd] == null) {
+          if (_this.methods[cmd] == null) {
             return callback(null, 'Unknown Command ' + cmd);
           }
-          return (_ref = this.methods)[cmd].apply(_ref, [callback].concat(__slice.call(args)));
+          return (_ref = _this.methods)[cmd].apply(_ref, [callback].concat(__slice.call(args)));
         }
       });
       return this.repl.on('exit', function() {
