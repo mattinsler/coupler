@@ -1,5 +1,5 @@
 (function() {
-  var ConnectionEmitter, ProtocolStack, RootService, ServiceContainer, ServiceProtocol, ServiceProtocolStack, root_service, rpc, _,
+  var ConnectionEmitter, ProtocolStack, RootService, ServiceContainer, ServiceProtocol, ServiceProtocolStack, crypto, root_service, rpc, _,
     __hasProp = {}.hasOwnProperty,
     __extends = function(child, parent) { for (var key in parent) { if (__hasProp.call(parent, key)) child[key] = parent[key]; } function ctor() { this.constructor = child; } ctor.prototype = parent.prototype; child.prototype = new ctor(); child.__super__ = parent.prototype; return child; },
     __slice = [].slice;
@@ -7,6 +7,8 @@
   _ = require('underscore');
 
   rpc = require('./rpc');
+
+  crypto = require('crypto');
 
   ProtocolStack = require('../protocol_stack');
 
@@ -115,6 +117,7 @@
       this.service_container = service_container;
       this.services = {};
       this.consumed_services = {};
+      this.consumed_services_idx = 0;
     }
 
     ServiceProtocol.prototype.initialize = function() {
@@ -135,17 +138,18 @@
       });
     };
 
-    ServiceProtocol.prototype.get_service = function(service_name) {
-      var service, svc,
+    ServiceProtocol.prototype.get_service = function(service_name, hash) {
+      var key, service, svc,
         _this = this;
-      service = this.services[service_name];
+      key = service_name + ':' + hash;
+      service = this.services[key];
       if (service == null) {
         svc = this.service_container.services[service_name];
         if (svc == null) {
           return null;
         }
         service = {
-          stack: new ServiceProtocolStack("s:" + service_name),
+          stack: new ServiceProtocolStack("s:" + key),
           rpc: rpc(service_name, svc)
         };
         Object.defineProperty(service.stack, 'connection', {
@@ -163,19 +167,17 @@
         if (ConnectionEmitter.is_disconnected(this.remote.__emitter__)) {
           service.stack.emit('disconnected');
         }
-        this.services[service_name] = service;
+        this.services[key] = service;
       }
       return service;
     };
 
     ServiceProtocol.prototype.consume = function(name) {
-      var service, _ref, _ref1,
+      var key, service, _ref, _ref1,
         _this = this;
-      if (this.consumed_services[name] != null) {
-        return this.consumed_services[name];
-      }
+      key = "" + name + ":" + (crypto.randomBytes(16).toString('hex'));
       service = {
-        stack: new ServiceProtocolStack("c:" + name),
+        stack: new ServiceProtocolStack("c:" + key),
         rpc: rpc(name)
       };
       Object.defineProperty(service.stack, 'connection', {
@@ -193,32 +195,34 @@
       if ((((_ref1 = this.remote) != null ? _ref1.__emitter__ : void 0) != null) && ConnectionEmitter.is_disconnected(this.remote.__emitter__)) {
         service.stack.emit('disconnected');
       }
-      this.consumed_services[name] = service;
+      this.consumed_services[key] = service;
       return service.rpc.client;
     };
 
     ServiceProtocol.prototype.recv = function(data, next) {
-      var service, service_name, type, _ref;
+      var hash, key, service, service_name, type, _ref;
       if (data.$s == null) {
         return;
       }
-      _ref = data.$s.split(':'), type = _ref[0], service_name = _ref[1];
+      _ref = data.$s.split(':'), type = _ref[0], service_name = _ref[1], hash = _ref[2];
+      key = "" + service_name + ":" + hash;
+      console.log(data);
       if (data.$m != null) {
         service = (function() {
           switch (type) {
             case 'c':
-              return this.get_service(service_name);
+              return this.get_service(service_name, hash);
             case 's':
-              return this.consumed_services[service_name];
+              return this.consumed_services[key];
           }
         }).call(this);
       } else if (data.$r != null) {
         service = (function() {
           switch (type) {
             case 'c':
-              return this.consumed_services[service_name];
+              return this.consumed_services[key];
             case 's':
-              return this.get_service(service_name);
+              return this.get_service(service_name, hash);
           }
         }).call(this);
       }

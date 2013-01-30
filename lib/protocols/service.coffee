@@ -1,5 +1,6 @@
 _ = require 'underscore'
 rpc = require './rpc'
+crypto = require 'crypto'
 ProtocolStack = require '../protocol_stack'
 ConnectionEmitter = require '../connection_emitter'
 
@@ -70,6 +71,7 @@ class ServiceProtocol
   constructor: (@service_container) ->
     @services = {}
     @consumed_services = {}
+    @consumed_services_idx = 0
   
   initialize: ->
     # Created a service protocol stack without a transport...  need to set the transport when parent stack's transport is set...
@@ -86,15 +88,16 @@ class ServiceProtocol
         s.stack.emit?(evt, args...) for s in _(@services).values().concat(_(@consumed_services).values())
         next()
   
-  get_service: (service_name) ->
-    service = @services[service_name]
+  get_service: (service_name, hash) ->
+    key = service_name + ':' + hash
+    service = @services[key]
     
     unless service?
       svc = @service_container.services[service_name]
       return null unless svc?
       
       service = {
-        stack: new ServiceProtocolStack("s:#{service_name}")
+        stack: new ServiceProtocolStack("s:#{key}")
         rpc: rpc(service_name, svc)
       }
       Object.defineProperty service.stack, 'connection', {
@@ -107,15 +110,17 @@ class ServiceProtocol
       service.stack.emit('connected') if ConnectionEmitter.is_connected(@remote.__emitter__)
       service.stack.emit('disconnected') if ConnectionEmitter.is_disconnected(@remote.__emitter__)
       
-      @services[service_name] = service
+      @services[key] = service
     
     service
   
   consume: (name) ->
-    return @consumed_services[name] if @consumed_services[name]?
+    # return @consumed_services[name].rpc.client if @consumed_services[name]?
+    
+    key = "#{name}:#{crypto.randomBytes(16).toString('hex')}"
     
     service = {
-      stack: new ServiceProtocolStack("c:#{name}")
+      stack: new ServiceProtocolStack("c:#{key}")
       rpc: rpc(name)
     }
     Object.defineProperty service.stack, 'connection', {
@@ -128,7 +133,7 @@ class ServiceProtocol
     service.stack.emit('connected') if @remote?.__emitter__? and ConnectionEmitter.is_connected(@remote.__emitter__)
     service.stack.emit('disconnected') if @remote?.__emitter__? and ConnectionEmitter.is_disconnected(@remote.__emitter__)
     
-    @consumed_services[name] = service
+    @consumed_services[key] = service
     service.rpc.client
   
   recv: (data, next) ->
@@ -136,16 +141,17 @@ class ServiceProtocol
     
     return unless data.$s?
     
-    [type, service_name] = data.$s.split(':')
+    [type, service_name, hash] = data.$s.split(':')
+    key = "#{service_name}:#{hash}"
     
     if data.$m?
       service = switch type
-        when 'c' then @get_service(service_name)
-        when 's' then @consumed_services[service_name]
+        when 'c' then @get_service(service_name, hash)
+        when 's' then @consumed_services[key]
     else if data.$r?
       service = switch type
-        when 'c' then @consumed_services[service_name]
-        when 's' then @get_service(service_name)
+        when 'c' then @consumed_services[key]
+        when 's' then @get_service(service_name, hash)
     
     return next() unless service?
     
