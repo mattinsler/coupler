@@ -206,7 +206,6 @@
       }
       _ref = data.$s.split(':'), type = _ref[0], service_name = _ref[1], hash = _ref[2];
       key = "" + service_name + ":" + hash;
-      console.log(data);
       if (data.$m != null) {
         service = (function() {
           switch (type) {
